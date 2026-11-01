@@ -1,0 +1,16 @@
+{
+  "_comment": "muChat example configuration. Copy to config.json and fill in your own values. NEVER commit a filled-in config.json, credentials, or queue/state files.",
+  "pair_id": "primary",
+  "bind_host": "127.0.0.1",
+  "pair_port": 3810,
+  "node_bin": "node",
+  "send_driver": "official-send-dist/driver.mjs",
+  "per_token_budget": 9,
+  "env": {
+    "MUCHAT_BIND_HOST": "bind address for the notify HTTP server (private network only, never public)",
+    "MUCHAT_NODE_BIN": "path to a Node >= 22.13 binary for the official send driver",
+    "MUCHAT_SEND_DRIVER": "path to the compiled official send driver (see official-send/NOTICE)",
+    "HTTPS_PROXY": "egress proxy, if your host needs one to reach iLink"
+  },
+  "credentials_path": "pairs/<pair_id>/state/credentials.json (mode 0600; created by bridge/login.py --wait after QR confirmation; contains bot_token, baseurl, ilink_bot_id, ilink_user_id -- never commit, never log, never print)"
+}

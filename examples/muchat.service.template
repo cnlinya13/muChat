@@ -1,0 +1,21 @@
+[Unit]
+Description=WeChat ClawBot bridge daemon (queue mode, pair primary)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=<INSTALL_DIR>
+ExecStart=<INSTALL_DIR>/.venv/bin/python bridge/daemon.py --mode queue --pair primary
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=30
+KillMode=control-group
+# Session expiry (-14) is handled inside the daemon with a 1-hour
+# internal pause, not by exiting, so RestartSec=30 only covers
+# real crashes. No token is passed on the command line; the daemon
+# reads pairs/primary/state/credentials.json (0600) itself.
+
+[Install]
+WantedBy=multi-user.target

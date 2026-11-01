@@ -1,0 +1,29 @@
+# Credentials, runtime state, queues, logs, media -- never commit.
+config.json
+pairs/
+*.log
+credentials.json
+**/credentials.json
+queue/
+state/
+logs/
+media/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.mp3
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+# Node (official-send build outputs are reproduced locally, not committed)
+node_modules/
+official-send-dist/
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
