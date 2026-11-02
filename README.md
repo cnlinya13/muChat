@@ -39,7 +39,6 @@
 | Python | Python 3，带 venv |
 | Node | 22.13 以上 |
 | 组网 | 服务器和 Muse 在同一个 Tailscale 内网里 |
-| 内网地址 | 网关要绑的地址，只在内网用，装了 tailscale 就自动取，没装就用 --tailnet-ip 给一个 |
 
 ### 1. 安装服务端，并拿到网关地址
 
