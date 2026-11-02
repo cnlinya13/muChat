@@ -17,6 +17,7 @@
 - **打字提示**：官方 `getconfig` / `sendtyping`，长任务期间持续显示“正在输入”。
 - **主动消息**：`bridge/proactive_write.py` 只在 24 小时窗口内、且每 token 预算未用完时写 outbox，否则什么都不写并退出；被拒绝的主动消息必须在 Muse 里告诉用户“发条微信重新打开窗口”，绝不静默丢弃。
 - **多对**：代码按 pair 隔离（状态、队列、日志、端口各一）；第二对需要第二个微信号和第二个 Muse 账号，见 `MULTI_PAIR_CHECKLIST.md`；第二对 hook 脚本见 `examples/second-pair/`（可直接 curl 安装）。
+- **网关**：单端口网关架构（一个端口、配对表、hook 令牌），网关 hook 模板见 `examples/gateway/`（可直接 curl 安装）。
 
 ## 快速开始
 

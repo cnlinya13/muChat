@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Gateway hook script template (copy per pair, fill the env vars).
+#
+# Polls the SINGLE gateway endpoint for this pair only. The pair is
+# identified by MUCHAT_GATEWAY_PAIR_ID and authenticated by
+# MUCHAT_GATEWAY_TOKEN (hook token issued at pairing). The token
+# must come from the hook's environment -- NEVER hardcode a token
+# in this script, and never log it.
+#
+# Required environment (set in the hook definition's environment):
+#   MUCHAT_GATEWAY_HOST   gateway tailnet address (e.g. YOUR_GATEWAY_TAILNET_IP)
+#   MUCHAT_GATEWAY_PORT   gateway port (e.g. 3820)
+#   MUCHAT_GATEWAY_PAIR_ID  permanent pair id (pair-xxxxxxxx)
+#   MUCHAT_GATEWAY_TOKEN  hook token for this pair only
+# State: ~/hooks/state/wechat-bridge-gateway-<pair_id>.json (seen ids).
+# Dry runs must not consume detections.
+set -euo pipefail
+source "$HATCH_HOOK_RUNTIME"
+
+PAIR_ID="${MUCHAT_GATEWAY_PAIR_ID:?missing MUCHAT_GATEWAY_PAIR_ID}"
+GATEWAY_TOKEN="${MUCHAT_GATEWAY_TOKEN:?missing MUCHAT_GATEWAY_TOKEN}"
+GATEWAY_HOST="${MUCHAT_GATEWAY_HOST:?missing MUCHAT_GATEWAY_HOST}"
+GATEWAY_PORT="${MUCHAT_GATEWAY_PORT:?missing MUCHAT_GATEWAY_PORT}"
+STATE_FILE="$HOME/hooks/state/wechat-bridge-gateway-${PAIR_ID}.json"
+TUNNEL_PROXY="${HTTPS_PROXY%:*}:3130"
+URL="http://${GATEWAY_HOST}:${GATEWAY_PORT}/inbox/wait?pair_id=${PAIR_ID}&timeout=12"
+
+if ! resp=$(curl --fail --silent --show-error --max-time 15 --proxy "$TUNNEL_PROXY" -H "Authorization: Bearer ${GATEWAY_TOKEN}" "$URL" 2>&1); then
+  log "gateway_inbox_fetch_failed" '{"error": "curl_failed"}'
+  silent "gateway inbox fetch failed, retry next poll"
+  exit 0
+fi
+
+pair=$(echo "$resp" | jq -r '.pair_id // empty' 2>/dev/null || true)
+if [[ "$pair" != "$PAIR_ID" ]]; then
+  log "gateway_inbox_pair_mismatch" '{"pair": "REDACTED"}'
+  silent "gateway inbox pair mismatch, ignoring"
+  exit 0
+fi
+
+alerts=$(echo "$resp" | jq -r '.alerts[]?' 2>/dev/null || true)
+if [[ -n "$alerts" ]]; then
+  log "gateway_bridge_alerts" "{\"alerts\": \"$(echo "$alerts" | paste -sd, -)\"}"
+fi
+
+current_ids=$(echo "$resp" | jq -r '.new[]?' 2>/dev/null || true)
+texts_json=$(echo "$resp" | jq -c '.texts // {}' 2>/dev/null || echo '{}')
+export CURRENT_IDS="$current_ids"
+export STATE_FILE="$STATE_FILE"
+new_ids=$(python3 - << 'PY'
+import json, os
+cur = [l.strip() for l in os.environ.get("CURRENT_IDS", "").splitlines() if l.strip()]
+state_file = os.path.expanduser(os.environ["STATE_FILE"])
+try:
+    seen = set(json.load(open(state_file)).get("seen", []))
+except Exception:
+    seen = set()
+new = [i for i in cur if i not in seen]
+print("\n".join(new))
+PY
+)
+
+if [[ -z "$new_ids" ]]; then
+  silent "no new gateway inbox messages"
+  exit 0
+fi
+
+if [[ "${HATCH_HOOK_DRY_RUN:-0}" != "1" ]]; then
+  export CURRENT_IDS="$current_ids"
+  export STATE_FILE="$STATE_FILE"
+  python3 - << 'PY'
+import json, os
+cur = [l.strip() for l in os.environ.get("CURRENT_IDS", "").splitlines() if l.strip()]
+state_file = os.path.expanduser(os.environ["STATE_FILE"])
+try:
+    seen = set(json.load(open(state_file)).get("seen", []))
+except Exception:
+    seen = set()
+merged = sorted(seen | set(cur))
+tmp = state_file + ".tmp"
+json.dump({"seen": merged}, open(tmp, "w"))
+os.replace(tmp, state_file)
+PY
+fi
+
+export ALERTS="$alerts"
+export TEXTS_JSON="$texts_json"
+export PAIR_ID="$PAIR_ID"
+payload=$(printf "%s" "$new_ids" | python3 -c "
+import json, os, sys
+ids = [l.strip() for l in sys.stdin if l.strip()]
+alerts = [l.strip() for l in os.environ.get('ALERTS', '').splitlines() if l.strip()]
+try:
+    texts = json.loads(os.environ.get('TEXTS_JSON', '{}'))
+except Exception:
+    texts = {}
+texts = {k: v for k, v in texts.items() if k in ids}
+payload = {'pair_id': os.environ['PAIR_ID'], 'message_ids': ids}
+if texts:
+    payload['texts'] = texts
+if alerts:
+    payload['bridge_alerts'] = alerts
+print(json.dumps(payload))
+")
+wake "new gateway inbox messages" "$payload"
