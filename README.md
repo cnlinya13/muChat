@@ -33,18 +33,20 @@
 
 ### 1. 安装服务端，并拿到网关地址
 
-把 `gateway/` 拷到服务器，装好 systemd 单元并启动，确认健康检查有输出，记下网关地址，默认端口是 3820。
-Python 依赖与 `bridge/` 相同，就是 requests 和 qrcode，可直接复用桥的 venv。
-发图驱动仍用官方代码本地编译，见 `official-send/NOTICE`，不要在小内存机器上跑完整 npm install。Node 需要 >= 22.13。
+在服务器上跑一键安装脚本，地址换成你自己的，端口默认 3820，部署目录默认是 ~/wechat-bridge-gateway：
 
 ```bash
-cp -r gateway /home/ubuntu/wechat-bridge-gateway/gateway
-# 装单元模板 examples/gateway/wechat-bridge-gateway.service.template
-# 地址和路径换成你的，然后：
-sudo systemctl enable --now wechat-bridge-gateway.service
-curl http://YOUR_GATEWAY_TAILNET_IP:3820/health
-# 应返回 {"ok": true, "pairs": [], ...}，记下这个地址和端口
+curl -sSL https://raw.githubusercontent.com/cnlinya13/muChat/main/scripts/install-gateway.sh | bash -s -- --tailnet-ip YOUR_GATEWAY_TAILNET_IP
 ```
+
+不想直接管道跑的话，先把仓库拉下来看过再跑：
+
+```bash
+git clone https://github.com/cnlinya13/muChat.git
+bash muChat/scripts/install-gateway.sh --tailnet-ip YOUR_GATEWAY_TAILNET_IP
+```
+
+装好了脚本会自己做健康检查，通了就打印网关地址，记下它。装了 tailscale 的机器可以不填地址，脚本会自己取，取不到就停下等你填。已经有数据在跑会停下不覆盖。发图要走官方驱动的话，得另外按 official-send/NOTICE 本地编好 dist 再拷过来。
 
 ### 2. 给 Muse 一句话
 
