@@ -1,0 +1,19 @@
+[Unit]
+Description=muChat WeChat bridge gateway (single port, all pairs)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/wechat-bridge-gateway
+# MUCHAT_BRIDGE_DIR points at the protocol helpers (ilink_client,
+# chunking) in the bridge tree; the gateway only ever IMPORTS them,
+# never writes there.
+Environment=MUCHAT_BRIDGE_DIR=/home/ubuntu/wechat-bridge/bridge
+ExecStart=/home/ubuntu/wechat-bridge/.venv/bin/python /home/ubuntu/wechat-bridge-gateway/gateway/server.py --root /home/ubuntu/wechat-bridge-gateway --host YOUR_GATEWAY_TAILNET_IP --port 3820 --pollers 2
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
