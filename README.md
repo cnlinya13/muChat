@@ -31,6 +31,17 @@
 
 ## 快速开始
 
+### 环境要求
+
+| 项目 | 要求 |
+| --- | --- |
+| 系统 | Linux，带 systemd |
+| Python | Python 3，带 venv |
+| 工具 | git、curl、sudo |
+| Node | 22.13 以上 |
+| 组网 | 服务器和 Muse 在同一个 Tailscale 内网里 |
+| 内网地址 | 网关要绑的地址，只在内网用，装了 tailscale 就自动取，没装就用 --tailnet-ip 给一个 |
+
 ### 1. 安装服务端，并拿到网关地址
 
 在服务器上跑一键安装脚本，地址换成你自己的，端口默认 3820，部署目录默认是 ~/wechat-bridge-gateway：
@@ -46,7 +57,9 @@ git clone https://github.com/cnlinya13/muChat.git
 bash muChat/scripts/install-gateway.sh --tailnet-ip YOUR_GATEWAY_TAILNET_IP
 ```
 
-装好了脚本会自己做健康检查，通了就打印网关地址，记下它。装了 tailscale 的机器可以不填地址，脚本会自己取，取不到就停下等你填。已经有数据在跑会停下不覆盖。发图要走官方驱动的话，得另外按 official-send/NOTICE 本地编好 dist 再拷过来。
+一条命令装完，文字和图片都能发，装好了脚本会自己做健康检查，通了就打印网关地址，记下它。装了 tailscale 的机器可以不填地址，脚本会自己取，取不到就停下等你填。已经有数据在跑会停下不覆盖。
+
+一键安装只给带 systemd 的 Linux 服务器用，macOS、Windows 机器跑不了一键安装。发图驱动本身只要有 Node 就能跑，缺的只是一键安装这一步。
 
 ### 2. 给 Muse 一句话
 
