@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # muChat 网关一键安装。
 # 从 GitHub 拉代码，建 venv，拷到部署目录，装 systemd 单元并启动。
+# 发图用的官方驱动和 Node 一起装好，一条命令装完就能收发文字和图片。
 # 不动已有数据，不建对，不发令牌，那些是后面 Muse 的事。
 set -euo pipefail
 
@@ -76,6 +77,19 @@ for cmd in python3 git curl; do
   command -v "$cmd" >/dev/null 2>&1 || die "缺 $cmd，先装好再跑"
 done
 python3 -c "import venv, ensurepip" 2>/dev/null || die "缺 python3-venv，先装好再跑"
+# 发图驱动要 Node 22.13 以上。Node 用户自己装，脚本不替你装，
+# 这里只检查，缺了或者太旧就停下，告诉你要装什么版本。
+command -v node >/dev/null 2>&1 || die "缺 node，发图驱动要 Node 22.13 以上，请先装好再跑"
+NODE_VER=$(node --version 2>/dev/null | tr -dc '0-9.' | cut -d. -f1,2)
+NODE_MAJOR=${NODE_VER%%.*}
+NODE_MINOR=${NODE_VER#*.}
+[ -n "$NODE_MAJOR" ] || NODE_MAJOR=0
+[ -n "$NODE_MINOR" ] || NODE_MINOR=0
+if [ "$NODE_MAJOR" -gt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -ge 13 ]; }; then
+  echo "node 够新：$(node --version)"
+else
+  die "node 太旧：$(node --version)，发图驱动要 Node 22.13 以上，请先装好再跑"
+fi
 if [ "$NO_SYSTEMD" -eq 0 ]; then
   command -v systemctl >/dev/null 2>&1 || die "缺 systemctl，这台机器没有 systemd"
   command -v sudo >/dev/null 2>&1 || die "缺 sudo，装单元需要 sudo"
@@ -115,17 +129,22 @@ git clone --depth 1 "$REPO_URL" "$TMP/repo"
 TEMPLATE="$TMP/repo/examples/gateway/wechat-bridge-gateway.service.template"
 [ -d "$TMP/repo/gateway" ] || die "仓库里没有 gateway 代码"
 [ -d "$TMP/repo/bridge" ] || die "仓库里没有 bridge 代码"
+[ -d "$TMP/repo/official-send/dist" ] || die "仓库里没有发图驱动"
+[ -f "$TMP/repo/official-send/dist/driver.mjs" ] || die "仓库里没有发图驱动入口"
 [ -f "$TEMPLATE" ] || die "仓库里没有单元模板"
 
 echo "拷代码到 $ROOT..."
-mkdir -p "$ROOT/gateway" "$ROOT/bridge" "$ROOT/registry" "$ROOT/pairs" "$ROOT/secrets"
+mkdir -p "$ROOT/gateway" "$ROOT/bridge" "$ROOT/registry" "$ROOT/pairs" "$ROOT/secrets" "$ROOT/official-send-dist"
 cp -r "$TMP/repo/gateway/." "$ROOT/gateway/"
 cp -r "$TMP/repo/bridge/." "$ROOT/bridge/"
+cp -r "$TMP/repo/official-send/dist/." "$ROOT/official-send-dist/"
 chmod 700 "$ROOT" "$ROOT/registry" "$ROOT/pairs" "$ROOT/secrets"
 
 echo "建 venv..."
 python3 -m venv "$ROOT/.venv"
 "$ROOT/.venv/bin/pip" install -q requests qrcode pillow
+
+node --check "$ROOT/official-send-dist/driver.mjs" || die "发图驱动校验没过"
 
 # 按模板生成单元，地址、路径、端口、用户都换成这次的。
 # 先把部署目录换成一个临时记号，再换桥目录，最后把记号换回来。
@@ -172,6 +191,7 @@ fi
 
 echo
 echo "装好了。"
+echo "发图驱动也装好了，文字和图片都能发。"
 echo "网关地址：$IP:$PORT"
 if [ "$NO_SYSTEMD" -eq 1 ]; then
   echo "systemd 步骤跳过了，自己装单元并启动："
@@ -182,4 +202,3 @@ fi
 echo "下一步：把下面这句发给你的 Muse，地址换成你自己的："
 echo "请你读取 https://raw.githubusercontent.com/cnlinya13/muChat/main/examples/gateway/README.md 中的内容并配置你本机环境，配置好以后给我二维码，我要开始绑定。"
 echo "网关地址是 $IP:$PORT。"
-echo "注意：发图要走官方驱动的话，得另外按 official-send/NOTICE 本地编好 dist 再拷过来，这个脚本不管它。"

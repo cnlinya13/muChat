@@ -54,6 +54,38 @@ from runtime import (  # noqa: E402
 
 MERGE_WAIT_SECONDS = 5
 
+# Official image driver lookup, in order: explicit deps (tests),
+# OFFICIAL_SEND_NODE / OFFICIAL_SEND_DRIVER env, deploy-root
+# paths next to this gateway tree, then the legacy live paths,
+# then plain node from PATH. Node is the user's own install
+# (22.13+), never installed by the gateway or its script.
+# The live gateway keeps working: its driver lives outside the
+# gateway root, so it falls through to the legacy paths.
+_DEPLOY_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _resolve_node_bin():
+    env = os.environ.get("OFFICIAL_SEND_NODE", "")
+    if env:
+        return env
+    local = _DEPLOY_ROOT / "node22" / "bin" / "node"
+    if local.is_file():
+        return str(local)
+    legacy = "/home/ubuntu/node22/bin/node"
+    if os.path.isfile(legacy):
+        return legacy
+    return "node"
+
+
+def _resolve_driver_path():
+    env = os.environ.get("OFFICIAL_SEND_DRIVER", "")
+    if env:
+        return env
+    local = _DEPLOY_ROOT / "official-send-dist" / "driver.mjs"
+    if local.is_file():
+        return str(local)
+    return "/home/ubuntu/official-send-dist/driver.mjs"
+
 
 def _validate_reply_text(reply):
     if reply is None:
@@ -96,9 +128,8 @@ def send_one_outbox(rt, out_path, deps=None, dry_run=False):
     send_text_fn = deps.get("send_text_fn") or _default_send_text
     send_typing_fn = deps.get("send_typing_fn") or _default_send_typing
     image_driver_fn = deps.get("image_driver_fn") or _default_image_driver
-    node_bin = deps.get("node_bin", "/home/ubuntu/node22/bin/node")
-    driver_path = deps.get(
-        "driver_path", "/home/ubuntu/official-send-dist/driver.mjs")
+    node_bin = deps.get("node_bin") or _resolve_node_bin()
+    driver_path = deps.get("driver_path") or _resolve_driver_path()
 
     from chunking import chunk_text
 
