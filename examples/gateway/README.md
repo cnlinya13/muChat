@@ -31,26 +31,33 @@ curl -sSL https://raw.githubusercontent.com/cnlinya13/muChat/main/examples/gatew
    (`gateway_cli create-pair`) and note its pair id. Fill your
    own Muse chat id as `muse_chat_id`.
 3. Issue the pair's hook token (`gateway_cli issue-token`). The
-   token is printed once: put it ONLY in a 0600 environment file
-   that the script sources (for example
+   token is printed once, as a labeled line (`HOOK_TOKEN pair=...
+   token=...`): extract just the token value (for example with
+   `sed 's/.* token=//'`) and put it ONLY in a 0600 environment
+   file that the script sources (for example
    `~/hooks/env/wechat-bridge-gateway-<pair_id>.env` holding
    `MUCHAT_GATEWAY_HOST`, `MUCHAT_GATEWAY_PORT`,
-   `MUCHAT_GATEWAY_PAIR_ID`, `MUCHAT_GATEWAY_TOKEN`). Never write
-   the token into the script, the definition, chat, logs, or
-   screenshots. (Note: some hook tools do not accept an
-   `environment` field in the definition — the env file is the
-   portable way.)
+   `MUCHAT_GATEWAY_PAIR_ID`, `MUCHAT_GATEWAY_TOKEN`). Never store
+   the whole labeled line, and never write the token into the
+   script, the definition, chat, logs, or screenshots. (Note:
+   some hook tools do not accept an `environment` field in the
+   definition — the env file is the portable way.)
 4. Create the hook from the definition template (replace
    `PAIR_ID`, set `delivery.to` to your own chat id, set the
    gateway host to your gateway's tailnet address, port 3820
    unless your deployment differs). Start disabled, dry-run
    clean, then enable.
 5. Only after the hook polls clean (empty queue, no errors),
-   generate the binding QR and have the user scan it with the
-   WeChat for this pair. The gateway CLI has no QR command: bind
-   once with the login helper into a temporary directory, import
-   the credentials into the gateway registry (hash-verify only,
-   never print values), then delete the temporary directory.
+   generate the binding QR with the gateway's one-command bind
+   (`MUCHAT_BRIDGE_DIR=<old-tree bridge dir> gateway_cli.py
+   --root <gateway-root> bind --pair <pair_id>`): it prints
+   QR_READY, waits for the scan, imports the credentials
+   (hash-verify only, never print values), deletes the
+   temporary directory, and the pair goes live within ~5s via
+   the reloader — no restart, no further step. Manual runs need
+   the MUCHAT_BRIDGE_DIR variable (the service unit sets it, a
+   manual shell does not). The QR lasts ~2 minutes; if it
+   expires, re-run bind for a fresh one.
 6. Ping test: the bound WeChat sends ping, only this Muse
    replies. Cross-talk test: ping on one pair while the other
    pair's queue and hook stay silent, then reverse.
